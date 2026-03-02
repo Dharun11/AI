@@ -6,23 +6,17 @@ Mentor Agent — matches students with mentors based on academic profile.
 """
 
 import json
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from config import GOOGLE_API_KEY, MODEL_NAME
+from factory import get_llm
 from db import get_mentors
 from logger import setup_logger
 
 logger = setup_logger("MentorAgent")
 
 
-def get_llm():
-    return ChatGoogleGenerativeAI(
-        model=MODEL_NAME,
-        google_api_key=GOOGLE_API_KEY,
-        temperature=0.7,
-    )
+# Removed module-level get_llm, now using factory.get_llm
 
 
 def _find_matching_mentors(student: dict, match_type: str) -> list[dict]:
@@ -85,6 +79,7 @@ Top Matching Mentors:
 Generate a personalized recommendation for each mentor match, explaining why they're ideal for this student."""),
     ])
 
+    llm = get_llm()
     chain = prompt | llm | StrOutputParser()
     result = chain.invoke({
         "name": student["name"],
@@ -130,6 +125,7 @@ Top Matching Mentors:
 Generate a personalized improvement plan with mentor recommendations for each weak area."""),
     ])
 
+    llm = get_llm()
     chain = prompt | llm | StrOutputParser()
     result = chain.invoke({
         "name": student["name"],

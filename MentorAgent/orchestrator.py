@@ -10,7 +10,7 @@ Uses Gemini as the LLM with custom tools for:
 """
 
 import json
-from langchain_google_genai import ChatGoogleGenerativeAI
+from factory import get_llm
 from langchain_core.tools import tool
 from logger import setup_logger
 
@@ -18,7 +18,7 @@ logger = setup_logger("Orchestrator")
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 
-from config import GOOGLE_API_KEY, MODEL_NAME
+# from factory import get_llm handled LLM setup
 from db import (
     get_student, get_all_students, get_conversation, save_conversation,
 )
@@ -215,12 +215,8 @@ TOOLS = [
 
 
 def create_agent():
-    """Create and return the LangChain ReAct agent."""
-    llm = ChatGoogleGenerativeAI(
-        model=MODEL_NAME,
-        google_api_key=GOOGLE_API_KEY,
-        temperature=0.4,
-    )
+    """Create and return the LangGraph agent using the factory LLM."""
+    llm = get_llm(temperature=0.4)
     agent = create_react_agent(llm, TOOLS, prompt=SYSTEM_PROMPT)
     return agent
 

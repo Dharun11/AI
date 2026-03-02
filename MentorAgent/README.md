@@ -31,9 +31,10 @@ Using **LangChain and LangGraph**, our system intelligently analyzes user querie
 
 - **Framework**: FastAPI (Backend API)
 - **AI Core**: LangChain & LangGraph
-- **LLM**: Google Gemini (Directly integrated via `langchain-google-genai`)
-- **Data Layer**: JSON-based persistent storage (No external database setup required for PoC)
-- **Environment**: Python 3.10+
+- **LLM Support**: 
+    - **Google Gemini**: Dynamic switching via `LLM_PROVIDER="gemini"`.
+    - **OpenAI**: Dynamic switching via `LLM_PROVIDER="openai"`. Supports all modern GPT models.
+- **Data Layer**: JSON-based persistent storage.
 
 ---
 
