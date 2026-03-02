@@ -1,0 +1,46 @@
+{
+  "test-mentor-1": [
+    {
+      "role": "user",
+      "content": "[Student ID: 124018017] Hi "
+    },
+    {
+      "role": "assistant",
+      "content": "I can't find a student with the ID 124018017. Please double-check the ID and try again. If you're unsure of the ID, I can list all students for you to help you find the correct one."
+    },
+    {
+      "role": "user",
+      "content": "[Student ID: s001] Hi "
+    },
+    {
+      "role": "assistant",
+      "content": "Hi Arun! It's great to connect with you.\n\nI encountered a temporary issue while trying to fetch your domain expert mentor recommendations. Please bear with me as we work to resolve this.\n\nIn the meantime, I see that you're a high-performing student with a CGPA of 8.2, and you excel in subjects like Machine Learning, Data Structures, and Python Programming. That's fantastic!\n\nOnce the system is back online, I'll be able to provide you with personalized recommendations for top domain expert mentors who can further guide you in your strong areas.\n\nIs there anything else I can help you with right now, or any other questions you have?"
+    },
+    {
+      "role": "user",
+      "content": "[Student ID: s001] i'm feeling very low bro my gf ditched me"
+    },
+    {
+      "role": "assistant",
+      "content": "Arun, I'm truly sorry to hear you're going through such a tough time right now. Breakups are incredibly painful, and it's completely understandable to feel so low and dejected when something like this happens. Please know you don't have to carry this burden alone.\n\nFor now, try to take a deep breath. Maybe step away for a little while, listen to some music, or just talk to a friend or family member you trust. Even a short walk can sometimes help clear your head.\n\nYour well-being is our top priority. To ensure you have all the support you need during this challenging period, I've sent a notification to your parent (arun.kumar@college.edu) and your assigned mentor. They care about you deeply and will want to offer their comfort and support.\n\nI've also recommended that you schedule a counseling session. If these feelings persist or become overwhelming, please remember that talking to a professional counselor can be incredibly beneficial. They can provide a safe space and strategies to help you navigate these emotions. We have resources available, and I can help you connect with them if you'd like. Please don't hesitate to reach out to me again whenever you need to talk."
+    },
+    {
+      "role": "user",
+      "content": "[Student ID: s001] Can u say me the proper placment guide or ay internships ? for me ate;ast i will focus on it"
+    },
+    {
+      "role": "assistant",
+      "content": "Arun, I understand that focusing on your career can be a helpful way to channel your energy right now. You have an excellent academic record with a CGPA of 8.2 and strong skills in Machine Learning, Data Structures, and Python Programming, which makes you a highly desirable candidate for many opportunities.\n\nHere are some personalized placement and internship recommendations that align perfectly with your strengths:\n\n### **Top Internship Opportunities:**\n\n1.  **Amazon - ML Engineering Intern:** This is an ideal fit given your expertise in Machine Learning and Python. An internship here would provide invaluable experience in applying your knowledge to real-world, large-scale problems.\n    *   **Preparation Tips:** Focus on deepening your understanding of ML algorithms and frameworks (TensorFlow/PyTorch), practice rigorous coding challenges (LeetCode medium/hard) focusing on algorithms and data structures, and start exploring Machine Learning System Design concepts. Highlight your ML projects on your resume.\n\n2.  **TCS - Data Engineering Intern:** Your strong command of Data Structures and Python makes you a great candidate for Data Engineering. This role is crucial for preparing and managing data for ML models and would give you hands-on experience with big data pipelines.\n    *   **Preparation Tips:** Brush up on advanced Python concepts and libraries (Pandas, NumPy), become proficient in SQL, and continue practicing Data Structures & Algorithms. Familiarize yourself with basic cloud platforms (AWS, Azure, GCP).\n\n### **Recommended Workshop:**\n\n*   **Google Developer Group - Cloud Study Jam Participant:** While not an internship, this workshop is highly recommended. Modern ML and Data Engineering roles heavily rely on cloud platforms. Gaining hands-on experience with Google Cloud Platform (especially its ML services) will significantly boost your competitiveness for internships and future roles.\n\n### **General Placements:**\n\nCompanies like Infosys and Wipro also offer valuable full-time opportunities. While they might not directly align with your *strongest* subjects, they are good options to consider.\n*   **Preparation Tips:** Practice general aptitude, logical reasoning, and coding fundamentals in any popular language. Also, work on your communication skills for interviews.\n\nArun, you have a fantastic skill set that is in high demand. Focusing on these tailored opportunities and preparing diligently will set you up for success. Remember, I'm here to support you through this process. Let's work together to help you achieve your career goals."
+    }
+  ],
+  "test-flow-1": [
+    {
+      "role": "user",
+      "content": "[Student ID: S001] Can you find a mentor for student S001? He wants to grow in his strong areas."
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error when trying to retrieve domain expert mentors for Arun Kumar (S001). It seems there was a temporary issue with the system.\n\nHowever, I can see that Arun is a high-performing student with an excellent CGPA of 8.2, and strong in areas like Machine Learning, Data Structures, and Python Programming. This is fantastic!\n\nI recommend trying again a bit later to find a suitable domain expert mentor who can help Arun further develop his skills in these strong areas. In the meantime, please encourage Arun to continue exploring his interests and perhaps look into advanced projects or research opportunities within his strong subjects.\n\nI'm here to support Arun's academic journey, so please let me know if there's anything else I can assist with, or if you'd like me to try finding mentors again."
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+[
+    {
+        "mentor_id": "M001",
+        "name": "Dr. Lakshmi Narayanan",
+        "domain": "Artificial Intelligence & Machine Learning",
+        "core_subjects": [
+            "Machine Learning",
+            "Deep Learning",
+            "Natural Language Processing",
+            "Computer Vision"
+        ],
+        "expertise_level": "Senior Professor",
+        "availability": true,
+        "department": "Computer Science",
+        "email": "lakshmi.n@college.edu"
+    },
+    {
+        "mentor_id": "M002",
+        "name": "Prof. Suresh Babu",
+        "domain": "Data Science & Analytics",
+        "core_subjects": [
+            "Data Structures",
+            "Python Programming",
+            "Statistics",
+            "Data Mining"
+        ],
+        "expertise_level": "Associate Professor",
+        "availability": true,
+        "department": "Computer Science",
+        "email": "suresh.b@college.edu"
+    },
+    {
+        "mentor_id": "M003",
+        "name": "Dr. Meena Kumari",
+        "domain": "Software Engineering",
+        "core_subjects": [
+            "Software Engineering",
+            "Java Programming",
+            "Cloud Computing",
+            "DevOps"
+        ],
+        "expertise_level": "Senior Professor",
+        "availability": true,
+        "department": "Information Technology",
+        "email": "meena.k@college.edu"
+    },
+    {
+        "mentor_id": "M004",
+        "name": "Prof. Rajesh Iyer",
+        "domain": "Systems & Networking",
+        "core_subjects": [
+            "Operating Systems",
+            "Computer Networks",
+            "Database Management",
+            "Computer Architecture"
+        ],
+        "expertise_level": "Associate Professor",
+        "availability": true,
+        "department": "Computer Science",
+        "email": "rajesh.i@college.edu"
+    },
+    {
+        "mentor_id": "M005",
+        "name": "Dr. Anitha Krishnan",
+        "domain": "Mathematics & Algorithms",
+        "core_subjects": [
+            "Mathematics",
+            "Algorithms",
+            "Discrete Mathematics",
+            "Linear Algebra"
+        ],
+        "expertise_level": "Professor",
+        "availability": true,
+        "department": "Mathematics",
+        "email": "anitha.k@college.edu"
+    },
+    {
+        "mentor_id": "M006",
+        "name": "Prof. Karthik Raman",
+        "domain": "Web & Mobile Development",
+        "core_subjects": [
+            "Web Development",
+            "UI/UX Design",
+            "Mobile App Development",
+            "Frontend Frameworks"
+        ],
+        "expertise_level": "Assistant Professor",
+        "availability": true,
+        "department": "Information Technology",
+        "email": "karthik.r@college.edu"
+    },
+    {
+        "mentor_id": "M007",
+        "name": "Dr. Deepa Venkatesh",
+        "domain": "Cybersecurity",
+        "core_subjects": [
+            "Computer Networks",
+            "Cryptography",
+            "Information Security",
+            "Ethical Hacking"
+        ],
+        "expertise_level": "Senior Professor",
+        "availability": false,
+        "department": "Computer Science",
+        "email": "deepa.v@college.edu"
+    },
+    {
+        "mentor_id": "M008",
+        "name": "Prof. Aravind Swamy",
+        "domain": "Database & Big Data",
+        "core_subjects": [
+            "Database Management",
+            "Big Data Analytics",
+            "SQL",
+            "NoSQL Systems"
+        ],
+        "expertise_level": "Associate Professor",
+        "availability": true,
+        "department": "Information Technology",
+        "email": "aravind.s@college.edu"
+    }
+]

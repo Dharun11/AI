@@ -1,0 +1,82 @@
+[
+  {
+    "student_id": "S001",
+    "name": "Arun Kumar",
+    "cgpa": 8.2,
+    "attendance_pct": 92,
+    "arrears": [],
+    "subjects": {
+      "strong": ["Machine Learning", "Data Structures", "Python Programming"],
+      "weak": []
+    },
+    "placed": false,
+    "department": "Computer Science",
+    "year": 3,
+    "email": "arun.kumar@college.edu",
+    "emotional_notes": "Generally motivated and focused."
+  },
+  {
+    "student_id": "S002",
+    "name": "Priya Sharma",
+    "cgpa": 6.8,
+    "attendance_pct": 70,
+    "arrears": ["Database Management", "Operating Systems"],
+    "subjects": {
+      "strong": ["Web Development"],
+      "weak": ["Database Management", "Operating Systems", "Computer Networks"]
+    },
+    "placed": false,
+    "department": "Computer Science",
+    "year": 3,
+    "email": "priya.sharma@college.edu",
+    "emotional_notes": "Has been struggling with academic pressure lately."
+  },
+  {
+    "student_id": "S003",
+    "name": "Rahul Verma",
+    "cgpa": 7.3,
+    "attendance_pct": 85,
+    "arrears": [],
+    "subjects": {
+      "strong": ["Java Programming", "Software Engineering", "Cloud Computing"],
+      "weak": ["Mathematics"]
+    },
+    "placed": false,
+    "department": "Information Technology",
+    "year": 4,
+    "email": "rahul.verma@college.edu",
+    "emotional_notes": "Eager to get placed, proactive about internships."
+  },
+  {
+    "student_id": "S004",
+    "name": "Sneha Reddy",
+    "cgpa": 5.5,
+    "attendance_pct": 60,
+    "arrears": ["Data Structures", "Algorithms", "Mathematics"],
+    "subjects": {
+      "strong": ["UI/UX Design"],
+      "weak": ["Data Structures", "Algorithms", "Mathematics", "Computer Architecture"]
+    },
+    "placed": false,
+    "department": "Computer Science",
+    "year": 2,
+    "email": "sneha.reddy@college.edu",
+    "emotional_notes": "Feeling overwhelmed and anxious about academics. Has expressed stress in recent interactions."
+  },
+  {
+    "student_id": "S005",
+    "name": "Vikram Patel",
+    "cgpa": 9.1,
+    "attendance_pct": 95,
+    "arrears": [],
+    "subjects": {
+      "strong": ["Artificial Intelligence", "Deep Learning", "Natural Language Processing", "Computer Vision"],
+      "weak": []
+    },
+    "placed": true,
+    "department": "Computer Science",
+    "year": 4,
+    "email": "vikram.patel@college.edu",
+    "emotional_notes": "Confident and self-driven. Mentors junior students."
+  }
+]

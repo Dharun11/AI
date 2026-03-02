@@ -1,0 +1,96 @@
+[
+    {
+        "id": "P001",
+        "type": "placement",
+        "company": "Infosys",
+        "role": "Software Developer",
+        "eligibility_cgpa": 7.0,
+        "description": "Full-time software developer role focusing on enterprise Java applications and cloud deployment.",
+        "skills_required": [
+            "Java Programming",
+            "Cloud Computing",
+            "Software Engineering"
+        ],
+        "deadline": "2026-04-15"
+    },
+    {
+        "id": "P002",
+        "type": "internship",
+        "company": "TCS",
+        "role": "Data Engineering Intern",
+        "eligibility_cgpa": 6.5,
+        "description": "6-month internship in data engineering, working with big data pipelines and analytics platforms.",
+        "skills_required": [
+            "Python Programming",
+            "Database Management",
+            "Data Structures"
+        ],
+        "deadline": "2026-03-30"
+    },
+    {
+        "id": "P003",
+        "type": "workshop",
+        "company": "Google Developer Group",
+        "role": "Cloud Study Jam Participant",
+        "eligibility_cgpa": 6.0,
+        "description": "Hands-on workshop on Google Cloud Platform covering compute, storage, and machine learning services.",
+        "skills_required": [
+            "Cloud Computing"
+        ],
+        "deadline": "2026-03-20"
+    },
+    {
+        "id": "P004",
+        "type": "placement",
+        "company": "Wipro",
+        "role": "Full Stack Developer",
+        "eligibility_cgpa": 7.0,
+        "description": "Full-stack development role with React frontend and Node.js backend for enterprise clients.",
+        "skills_required": [
+            "Web Development",
+            "JavaScript",
+            "Software Engineering"
+        ],
+        "deadline": "2026-05-01"
+    },
+    {
+        "id": "P005",
+        "type": "internship",
+        "company": "Amazon",
+        "role": "ML Engineering Intern",
+        "eligibility_cgpa": 8.0,
+        "description": "Research internship focused on applying machine learning to solve real-world problems at scale.",
+        "skills_required": [
+            "Machine Learning",
+            "Python Programming",
+            "Deep Learning"
+        ],
+        "deadline": "2026-04-01"
+    },
+    {
+        "id": "P006",
+        "type": "preplacement",
+        "company": "Cognizant",
+        "role": "Associate - Projects",
+        "eligibility_cgpa": 6.5,
+        "description": "Pre-placement offer for students who completed their internship. Role involves project delivery and client interaction.",
+        "skills_required": [
+            "Software Engineering",
+            "Communication"
+        ],
+        "deadline": "2026-04-10"
+    },
+    {
+        "id": "P007",
+        "type": "workshop",
+        "company": "Microsoft",
+        "role": "Azure AI Fundamentals Workshop",
+        "eligibility_cgpa": 6.0,
+        "description": "Workshop covering Azure AI services including cognitive services, bot framework, and ML Studio.",
+        "skills_required": [
+            "Artificial Intelligence",
+            "Cloud Computing"
+        ],
+        "deadline": "2026-03-25"
+    }
+]
