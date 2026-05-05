@@ -232,16 +232,43 @@ def main() -> None:
 
     # ── Input ────────────────────────────────
     st.markdown("### 📄 Resume Input")
-    tab_paste, tab_upload = st.tabs(["Paste Text", "Upload File"])
-    with tab_paste:
-        manual_text = st.text_area(
-            "Paste resume text here",
-            height=240,
-            placeholder="John Doe\nSoftware Engineer\n5 years experience in Python, AWS, Kubernetes...",
-            label_visibility="collapsed",
-        )
-    with tab_upload:
-        upload = st.file_uploader("Upload .txt or .pdf", type=["txt", "pdf"])
+
+    # File uploader lives at the top level (NOT inside a tab/expander) so its
+    # value is preserved across button-click reruns via Streamlit's widget state.
+    upload = st.file_uploader(
+        "Upload resume (.txt or .pdf)",
+        type=["txt", "pdf"],
+        help="Drag-and-drop or click to browse. Supported: .txt, .pdf",
+    )
+
+    # Cache extracted text in session_state so it survives reruns
+    if upload is not None:
+        try:
+            extracted = _extract_text_from_upload(upload).strip()
+            if extracted:
+                st.session_state["_uploaded_resume"] = extracted
+                st.session_state["_uploaded_name"] = upload.name
+        except Exception as error:
+            st.error(f"Could not read file: {error}")
+
+    if st.session_state.get("_uploaded_resume"):
+        fname = st.session_state.get("_uploaded_name", "uploaded file")
+        with st.expander(f"📄 Preview — {fname}", expanded=False):
+            st.text(st.session_state["_uploaded_resume"][:2000] + (
+                "\n… (truncated for preview)" if len(st.session_state["_uploaded_resume"]) > 2000 else ""
+            ))
+        if st.button("✖ Clear uploaded file", key="clear_upload"):
+            st.session_state.pop("_uploaded_resume", None)
+            st.session_state.pop("_uploaded_name", None)
+            st.rerun()
+
+    st.markdown("**Or paste resume text directly:**")
+    manual_text = st.text_area(
+        "Paste resume text here",
+        height=220,
+        placeholder="John Doe\nSoftware Engineer\n5 years experience in Python, AWS, Kubernetes...",
+        label_visibility="collapsed",
+    )
 
     st.markdown("<br>", unsafe_allow_html=True)
     run_btn = st.button("🔥 Run Roast", type="primary", use_container_width=True)
@@ -249,19 +276,13 @@ def main() -> None:
     if not run_btn:
         return
 
-    # ── Collect resume text ──────────────────
-    resume_text = ""
-    try:
-        if upload is not None:
-            resume_text = _extract_text_from_upload(upload).strip()
-        elif manual_text.strip():
-            resume_text = manual_text.strip()
-    except Exception as error:
-        st.error(f"Could not read resume: {error}")
-        return
+    # ── Collect resume text (upload takes priority over paste) ──────────────
+    resume_text = st.session_state.get("_uploaded_resume", "").strip()
+    if not resume_text:
+        resume_text = manual_text.strip()
 
     if not resume_text:
-        st.warning("Please paste or upload a resume before running.")
+        st.warning("Please upload a file or paste resume text before running.")
         return
 
     # ── Run pipeline ─────────────────────────
