@@ -21,3 +21,7 @@ def get_embedder(name: str, **kwargs: Any) -> Embedder:
             f"Unknown embedder '{name}'. Registered embedders: {sorted(EMBEDDER_REGISTRY)}"
         ) from None
     return cls(**kwargs)
+
+
+def list_registered() -> list[str]:
+    return sorted(EMBEDDER_REGISTRY)

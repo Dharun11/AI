@@ -21,3 +21,7 @@ def get_store(name: str, **kwargs: Any) -> VectorStoreWriter:
             f"Unknown store '{name}'. Registered stores: {sorted(STORE_REGISTRY)}"
         ) from None
     return cls(**kwargs)
+
+
+def list_registered() -> list[str]:
+    return sorted(STORE_REGISTRY)

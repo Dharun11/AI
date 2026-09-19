@@ -1,0 +1,26 @@
+# Data + MySQL
+pandas
+SQLAlchemy>=2.0
+pymysql
+cryptography          # required by pymysql for MySQL 8 caching_sha2_password auth
+python-dotenv
+requests
+
+# Agent framework
+langgraph
+langchain
+langchain-core
+langchain-community
+
+# Cloud LLMs (selected via LLM_PROVIDER; no local LLMs)
+langchain-openai      # openai + deepseek (OpenAI-compatible)
+langchain-anthropic
+
+# Vector DB + local embedding model (BAAI/bge-small-en-v1.5)
+pinecone
+langchain-pinecone
+langchain-huggingface
+sentence-transformers
+
+# UI
+streamlit

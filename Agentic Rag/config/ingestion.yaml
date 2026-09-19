@@ -16,5 +16,7 @@ store:
   path: ./qdrant_storage
   url: null
 
+hash_store_name: sqlite
+hash_store_project_id: default
 hash_index_path: ./ingestion_hashes.db
 dead_letter_dir: ./dead_letter

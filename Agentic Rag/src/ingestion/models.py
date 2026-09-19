@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from ingestion.errors import DeadLetterRecord
+
 
 class ElementType(str, Enum):
     HEADING = "heading"
@@ -70,3 +72,24 @@ class EmbeddedChunk(BaseModel):
     sparse_vector: dict[int, float] | None = None
     embedding_model: str
     embedding_dim: int
+
+
+class DocumentResult(BaseModel):
+    """Per-document outcome of IngestionPipeline.run_one.
+
+    Distinct from RunCounters: this carries the actual chunks/embeddings
+    produced (or the failure record) for one document, so callers like an
+    API layer can build a response body instead of only reading aggregate
+    counts.
+    """
+
+    source_path: str
+    document: Document | None = None
+    chunks: list[Chunk] = []
+    embedded_chunks: list[EmbeddedChunk] = []
+    skipped_count: int = 0
+    error: DeadLetterRecord | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.error is None

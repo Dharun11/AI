@@ -13,12 +13,29 @@ dependencies = [
     "PyYAML>=6.0",
     "structlog>=24.0",
     "typer>=0.12",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "python-docx>=1.0",
+]
+pinecone = [
+    "pinecone>=5.0",
+]
+mysql = [
+    "pymysql>=1.1",
+    "dbutils>=3.0",
+]
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+]
+ui = [
+    "streamlit>=1.35",
+    "requests>=2.31",
 ]
 
 [tool.setuptools.packages.find]

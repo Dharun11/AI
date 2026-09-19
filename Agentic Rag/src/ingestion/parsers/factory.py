@@ -19,3 +19,7 @@ def get_parser(name: str) -> Parser:
             f"Unknown parser '{name}'. Registered parsers: {sorted(PARSER_REGISTRY)}"
         ) from None
     return cls()
+
+
+def list_registered() -> list[str]:
+    return sorted(PARSER_REGISTRY)

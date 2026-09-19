@@ -19,3 +19,7 @@ def get_chunker(name: str) -> Chunker:
             f"Unknown chunker '{name}'. Registered chunkers: {sorted(CHUNKER_REGISTRY)}"
         ) from None
     return cls()
+
+
+def list_registered() -> list[str]:
+    return sorted(CHUNKER_REGISTRY)

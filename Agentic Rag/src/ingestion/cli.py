@@ -1,13 +1,14 @@
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 
 from ingestion.chunkers.base import ChunkerConfig
 from ingestion.chunkers.coordinator import ChunkingCoordinator
 from ingestion.config import IngestionSettings
 from ingestion.embedders.factory import get_embedder
 from ingestion.errors import DeadLetterSink
-from ingestion.hashing import HashIndex
+from ingestion.hashing import get_hash_store
 from ingestion.observability import configure_logging
 from ingestion.parsers.factory import get_parser
 from ingestion.pipeline import IngestionPipeline
@@ -35,8 +36,22 @@ def build_pipeline(settings: IngestionSettings) -> IngestionPipeline:
         if settings.store.url:
             store_kwargs["url"] = settings.store.url
         store = get_store("qdrant", **store_kwargs)
+    elif settings.store.name == "pinecone":
+        store = get_store(
+            "pinecone",
+            index_name=settings.store.pinecone_index_name or settings.store.collection_name,
+            dimension=embedder.dimension,
+            metric=settings.store.pinecone_metric,
+            cloud=settings.store.pinecone_cloud,
+            region=settings.store.pinecone_region,
+        )
     else:
         store = get_store(settings.store.name)
+
+    if settings.hash_store_name == "mysql":
+        hash_index = get_hash_store("mysql", project_id=settings.hash_store_project_id)
+    else:
+        hash_index = get_hash_store("sqlite", db_path=settings.hash_index_path)
 
     return IngestionPipeline(
         parser=parser,
@@ -47,7 +62,7 @@ def build_pipeline(settings: IngestionSettings) -> IngestionPipeline:
         ),
         embedder=embedder,
         store=store,
-        hash_index=HashIndex(settings.hash_index_path),
+        hash_index=hash_index,
         dead_letter_sink=DeadLetterSink(settings.dead_letter_dir),
     )
 
@@ -57,6 +72,7 @@ def run(
     input_dir: Path = typer.Option(..., exists=True, file_okay=False, dir_okay=True),
     config_path: Path | None = typer.Option(None, "--config", help="Path to an ingestion YAML config"),
 ) -> None:
+    load_dotenv()  # PINECONE_API_KEY / MYSQL_* etc. live in .env, never in a committed YAML
     configure_logging()
     settings = IngestionSettings.from_yaml(config_path) if config_path else IngestionSettings()
 

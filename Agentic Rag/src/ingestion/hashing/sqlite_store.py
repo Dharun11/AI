@@ -4,6 +4,7 @@ from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ingestion.hashing.factory import register_hash_store
 from ingestion.models import Chunk
 
 DEFAULT_BATCH_SIZE = 500
@@ -17,6 +18,7 @@ def sha256_text(text: str) -> str:
     return sha256_bytes(text.encode("utf-8"))
 
 
+@register_hash_store("sqlite")
 class HashIndex:
     """SQLite-backed idempotency index: has this exact chunk content already been embedded?
 
@@ -31,7 +33,14 @@ class HashIndex:
     object's lifetime — this index is used by a batch pipeline, not a hot
     request path, so the extra connect/close cost is negligible and it avoids
     ever holding a stale connection across a long-running ingestion run.
+
+    One instance = one project's worth of hashes (one file). For a deployment
+    serving many independent projects from one long-running process, see
+    MySQLHashStore, which scopes rows by `project_id` in a single shared table
+    instead of giving each project its own file.
     """
+
+    name = "sqlite"
 
     def __init__(self, db_path: Path | str, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
         self._db_path = str(db_path)
