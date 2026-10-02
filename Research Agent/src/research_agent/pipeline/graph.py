@@ -13,7 +13,7 @@ from ..config import get_settings
 from ..fetch.fetcher import fetch_all
 from ..llm import get_llm
 from ..models import Brief, Claim, ClaimGroup, Gap, Source, Stats, TldrOut
-from .extract import extract_claims
+from .extract import apply_coverage, extract_claims
 from .gaps import find_gaps
 from .synthesize import synthesize
 from .trace import ask, progress_var, run_id_var, traced_node
@@ -66,17 +66,18 @@ def build_graph(llm: BaseChatModel | None = None):
         for s in sources:
             log.info("fetched %s %-7s %-12s %7s chars  %s%s", s.id, s.status, s.method or "-", f"{len(s.text):,}",
                      s.url, f"  ({s.error})" if s.error else "")
-        usable = [s for s in sources if s.status != "failed"]
+        usable = [s for s in sources if s.usable]
         if len(usable) < 2:
-            detail = "; ".join(f"{s.url}: {s.error}" for s in sources if s.status == "failed")
+            detail = "; ".join(f"{s.url}: {s.status} ({s.error})" for s in sources if not s.usable)
             raise InsufficientSourcesError(f"Only {len(usable)} source(s) could be read. {detail}")
         return {"sources": sources, "stats": Stats(sources_ok=len(usable), llm_provider=settings.llm_provider)}
 
     @traced_node("extract", NEXT["extract"])
     async def extract(state: State) -> State:
-        claims = await extract_claims(llm, state["topic"], state["sources"])
+        claims, coverage = await extract_claims(llm, state["topic"], state["sources"])
+        sources = apply_coverage(state["sources"], coverage)        # flags sources whose chunks yielded nothing
         stats = state["stats"].model_copy(update={"claims_extracted": len(claims)})
-        return {"claims": claims, "stats": stats}
+        return {"claims": claims, "sources": sources, "stats": stats}
 
     @traced_node("verify", NEXT["verify"])
     async def verify(state: State) -> State:

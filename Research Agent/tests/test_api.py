@@ -48,7 +48,8 @@ def make_fake_llm():
             GroupOut(kind="consensus", summary="Arbitration resolves disputes in under six months.",
                      claim_ids=["S1-C01", "S2-C01"]),
             GroupOut(kind="contradiction", summary="Are awards quickly enforceable?",
-                     claim_ids=["S1-C01", "S4-C01"], positions=[["S1-C01"], ["S4-C01"]]),
+                     claim_ids=["S1-C01", "S4-C01"], positions=[["S1-C01"], ["S4-C01"]],
+                     position_labels=["Arbitration is fast", "Appeals can stall awards for months"]),
             GroupOut(kind="consensus", summary="bogus", claim_ids=["S3-C01", "S3-C09"]),
         ]),
         "FacetsOut": FacetsOut(facets=[
@@ -74,6 +75,12 @@ def test_rejects_duplicate_urls():
     assert r.status_code == 422
 
 
+def section(md: str, name: str) -> str:
+    """Text of the '## name' section, up to the next '## ' heading (sub-headings use '###')."""
+    marker = "\n## "
+    return md.split(marker + name + "\n")[1].split(marker)[0]
+
+
 @respx.mock
 def test_end_to_end_brief(monkeypatch, tmp_path):
     monkeypatch.setattr(get_settings(), "output_dir", tmp_path)
@@ -88,22 +95,28 @@ def test_end_to_end_brief(monkeypatch, tmp_path):
     md = r.text
 
     # consensus cites two distinct sources with real URLs
-    consensus = md.split("## ✅ Consensus")[1].split("## ⚔️")[0]
+    consensus = section(md, "Consensus")
     assert "https://a.example/1" in consensus and "https://b.example/2" in consensus
-    # contradiction rendered with both positions
-    contra = md.split("## ⚔️ Contradictions")[1].split("## 🔎")[0]
-    assert "Position A" in contra and "https://d.example/4" in contra
-    # bogus single-source consensus became an outlier
-    outliers = md.split("## 🔎 Outliers")[1].split("## 🕳️")[0]
-    assert "AI case allocation reduces bias" in outliers
+    assert "Sources: 2 of 4 · Evidence: S1-C01, S2-C01" in consensus        # evidence indicator
+    # contradiction: explicit positions with their own stance, sources and a "vs." between them
+    contra = section(md, "Contradictions")
+    assert "**Position A: Arbitration is fast**" in contra and "**Position B: Appeals can stall awards for months**" in contra
+    assert "Sources: S1 · Evidence: S1-C01" in contra and "Sources: S4 · Evidence: S4-C01" in contra
+    assert "**vs.**" in contra and "https://d.example/4" in contra
+    # bogus single-source consensus became a single-source claim
+    assert "AI case allocation reduces bias" in section(md, "Single-source claims")
     # gaps are uncovered expected facets
-    gaps = md.split("## 🕳️ Gaps")[1].split("---")[0]
+    gaps = section(md, "Gaps")
     assert "Data privacy (DPDP Act)" in gaps and "Timelines" not in gaps
+    # every source is listed with its status
+    status = section(md, "Source status")
+    assert status.count("processed") == 4 and "✓" in status
     # hallucinated claims never appear; rejection counted
     assert "Made up." not in md
     assert "4 rejected as ungrounded" in md
-    # footnote evidence uses verbatim quotes
-    assert '[^S2-C01]: **S2**: "usually concludes in under six months"' in md
+    # evidence chain: claim ID -> source -> exact quote -> URL
+    chain = md.split("## Evidence chain")[1]
+    assert '| `S2-C01` | S2 b.example | "usually concludes in under six months" | https://b.example/2 |' in chain
     assert list(tmp_path.glob("*.md"))
 
 

@@ -1,6 +1,6 @@
 """Streamlit UI: enter a topic and 3-5 URLs, watch the pipeline run, read and download the brief.
 
-Run with:  streamlit run streamlit_app.py
+Run with:  uv run streamlit run streamlit_app.py
 """
 import asyncio
 import os
@@ -11,10 +11,13 @@ from urllib.parse import urlparse
 import streamlit as st
 
 from research_agent.config import get_settings
+from research_agent.fetch.js import INSTALL_HINT, browser_installed
+from research_agent.llm import LLMConfigError
 from research_agent.models import Brief
 from research_agent.pipeline.graph import InsufficientSourcesError, run_research
 from research_agent.pipeline.trace import configure_logging
 from research_agent.render.markdown import OUTLIERS_SHOWN, render_markdown
+from research_agent.render.view import COLOR, evidence_rows, indicator, position_indicator, short_name, source_rows
 
 st.set_page_config(page_title="Research Synthesis Agent", page_icon=None, layout="wide")
 configure_logging()
@@ -22,7 +25,6 @@ configure_logging()
 MIN_URLS, MAX_URLS = 3, 5
 KEY_ENV = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY",
            "gemini": "GOOGLE_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}
-STATUS_LABEL = {"ok": "ok", "partial": "partial", "failed": "failed"}
 EXAMPLE_TOPIC = "Impact of AI on jobs and the labor market"
 EXAMPLE_URLS = "\n".join([
     "https://insights.som.yale.edu/insights/the-real-job-destruction-from-ai-is-hitting-before-careers-can-start",
@@ -55,53 +57,80 @@ def esc(text: str) -> str:
     return text.replace("$", r"\$")
 
 
-def claim_md(brief: Brief, cid: str, quotes: bool, indent: str = "") -> str:
-    claim = brief.claims[cid]
-    url = next(s.url for s in brief.sources if s.id == claim.source_id)
-    line = f"{indent}- {esc(claim.statement)} [[{claim.source_id}]]({url})"
-    if quotes:
-        line += f"\n{indent}  - *“{esc(claim.quote)}”*"
-    return line
+def claim_md(brief: Brief, cid: str, quote: bool = False) -> str:
+    """One claim as a bullet: statement, linked source, claim ID (and optionally the exact quote)."""
+    c = brief.claims[cid]
+    s = next(s for s in brief.sources if s.id == c.source_id)
+    line = f"- {esc(c.statement)} [{s.id} · {short_name(s)}]({s.url}) `{cid}`"
+    return line + (f"\n  - *“{esc(' '.join(c.quote.split()))}”*" if quote else "")
 
 
-def render_brief(brief: Brief, quotes: bool) -> None:
+def claims_md(brief: Brief, ids: list[str], quote: bool = False) -> str:
+    return "\n".join(claim_md(brief, cid, quote) for cid in ids)
+
+
+def evidence_chain(brief: Brief, ids: list[str]) -> None:
+    """Finding -> claim ID -> source -> exact quote -> URL, as a table that wraps long quotes."""
+    rows = evidence_rows(brief, ids)
+    cell = lambda t: esc(t).replace("|", "\\|")  # noqa: E731
+    table = ["| Claim | Source | Exact quote | URL |", "|---|---|---|---|"] + [
+        f"| `{r['claim_id']}` | {r['source_id']} {cell(r['name'])} | “{cell(r['quote'])}” | {r['url']} |" for r in rows]
+    with st.expander(f"Evidence chain ({len(rows)} claim{'s' if len(rows) != 1 else ''})"):
+        st.markdown("\n".join(table))
+
+
+def render_source_strip(brief: Brief) -> None:
+    """One line per source showing what happened to it: the graceful-failure view."""
+    parts = [f":{COLOR[r['status']]}[{r['icon']} **{r['name']}**] {esc(r['label'])}" for r in source_rows(brief)]
+    st.markdown("  \n".join(parts))
+
+
+def render_brief(brief: Brief) -> None:
     st.subheader("TL;DR")
     for bullet in brief.tldr or ["No findings could be summarised."]:
         st.markdown(f"- {esc(bullet)}")
 
-    st.subheader(f"Consensus ({len(brief.consensus)})", help="2 or more different sources make the same assertion.")
+    st.subheader(f"Consensus ({len(brief.consensus)})", help="Two or more different sources make the same assertion.")
     if not brief.consensus:
         st.caption("No claim was corroborated by two or more independent sources.")
-    for i, group in enumerate(brief.consensus, 1):
-        st.markdown(f"**{i}. {esc(group.summary)}**")
-        st.markdown("\n".join(claim_md(brief, cid, quotes) for cid in group.claim_ids))
+    for i, g in enumerate(brief.consensus, 1):
+        with st.container(border=True):
+            st.markdown(f"**Consensus {i}: {esc(g.summary)}**")
+            st.caption(indicator(brief, g.claim_ids))
+            st.markdown(claims_md(brief, g.claim_ids))
+            evidence_chain(brief, g.claim_ids)
 
     st.subheader(f"Contradictions ({len(brief.contradictions)})", help="Claims from different sources that cannot both be true.")
     if not brief.contradictions:
         st.caption("No direct contradictions between sources were found.")
-    for i, group in enumerate(brief.contradictions, 1):
-        st.markdown(f"**{i}. {esc(group.summary)}**")
-        columns = st.columns(len(group.positions))
-        for n, (col, ids) in enumerate(zip(columns, group.positions)):
-            with col.container(border=True):
-                st.markdown(f"**Position {'ABCDEFG'[n]}**")
-                st.markdown("\n".join(claim_md(brief, cid, quotes) for cid in ids))
+    for i, g in enumerate(brief.contradictions, 1):
+        with st.container(border=True):
+            st.markdown(f"**Contradiction {i}: {esc(g.summary)}**")
+            for n, side in enumerate(g.positions):
+                if n:
+                    st.markdown("<div style='text-align:center;font-weight:600;opacity:.7'>vs.</div>", unsafe_allow_html=True)
+                label = g.position_labels[n] if n < len(g.position_labels) else brief.claims[side[0]].statement
+                st.markdown(f"**Position {'ABCDEFG'[n]}: {esc(label)}**")
+                st.caption(position_indicator(brief, side))
+                st.markdown(claims_md(brief, side))
+            evidence_chain(brief, g.claim_ids)
 
-    st.subheader(f"Outliers ({len(brief.outliers)})", help="Verified claims made by only one source and not contested.")
+    st.subheader(f"Single-source claims ({len(brief.outliers)})",
+                 help="Verified claims made by only one source and not contested. Not yet corroborated.")
     by_source: dict[str, list[str]] = {}
     for cid in brief.outliers:
         by_source.setdefault(brief.claims[cid].source_id, []).append(cid)
     titles = {s.id: s.title for s in brief.sources}
     for sid, ids in sorted(by_source.items()):
         st.markdown(f"**{sid}: {esc(titles[sid])}**")
-        st.markdown("\n".join(claim_md(brief, cid, quotes) for cid in ids[:OUTLIERS_SHOWN]))
+        st.markdown(claims_md(brief, ids[:OUTLIERS_SHOWN], quote=True))
         if len(ids) > OUTLIERS_SHOWN:
             with st.expander(f"{len(ids) - OUTLIERS_SHOWN} more from {sid}"):
-                st.markdown("\n".join(claim_md(brief, cid, quotes) for cid in ids[OUTLIERS_SHOWN:]))
+                st.markdown(claims_md(brief, ids[OUTLIERS_SHOWN:], quote=True))
     if not by_source:
         st.caption("Every claim was corroborated or contested by another source.")
 
-    st.subheader(f"Gaps ({len(brief.gaps)})", help="Expected dimensions of the topic that no source addresses.")
+    st.subheader(f"Gaps ({len(brief.gaps)})", help="Topics a decision-maker would expect that no source addresses.")
     if not brief.gaps:
         st.caption("All expected facets of the topic were covered by at least one source.")
     for gap in brief.gaps:
@@ -118,14 +147,16 @@ def render_brief(brief: Brief, quotes: bool) -> None:
         )
 
 
-def render_sources(brief: Brief) -> None:
+def render_source_status(brief: Brief) -> None:
     st.dataframe(
-        [{"ID": s.id, "Title": s.title, "Status": STATUS_LABEL[s.status], "Parsed with": s.method or "-",
-          "Characters": len(s.text), "Note": s.error or "", "URL": s.url} for s in brief.sources],
+        [{"": r["icon"], "ID": r["id"], "Source": r["name"], "Status": r["label"], "Parsed with": r["method"],
+          "Title": r["title"], "URL": r["url"]} for r in source_rows(brief)],
         hide_index=True, width="stretch",
-        column_config={"URL": st.column_config.LinkColumn("URL"), "Characters": st.column_config.NumberColumn(format="%d")},
+        column_config={"URL": st.column_config.LinkColumn("URL")},
     )
-    st.caption("Paywalled or blocked pages are flagged here and never bypassed. Failed sources are skipped.")
+    st.caption("A page that refuses our fetcher is shown as inaccessible; that does not prove a paywall, and nothing is bypassed. "
+               "Inaccessible, timed-out and unparseable sources are skipped. "
+               "“browser-rendered” means the plain download had too little text, so the page was opened in headless Chromium.")
 
 
 def file_name(topic: str) -> str:
@@ -136,11 +167,22 @@ def file_name(topic: str) -> str:
 settings = get_settings()
 with st.sidebar:
     st.header("Settings")
-    st.markdown(f"**Provider:** `{settings.llm_provider}`")
-    st.markdown(f"**Model:** `{settings.llm_model.strip() or 'provider default'}`")
-    if not os.getenv(KEY_ENV.get(settings.llm_provider, ""), ""):
+    st.markdown(f"**Provider:** `{settings.llm_provider or 'not set'}`")
+    st.markdown(f"**Model:** `{settings.llm_model.strip() or 'not set'}`")
+    st.markdown(f"**Reasoning:** `{settings.llm_reasoning or 'model default'}`")
+    if not settings.llm_provider or not settings.llm_model.strip():
+        st.error("Set `LLM_PROVIDER` and `LLM_MODEL` in `.env`. No model is built in.")
+    elif not os.getenv(KEY_ENV.get(settings.llm_provider, ""), ""):
         st.warning(f"`{KEY_ENV.get(settings.llm_provider, 'API key')}` is not set. Add it to `.env`.")
-    st.caption("Change the provider and model in `.env` (LLM_PROVIDER, LLM_MODEL) and restart the app.")
+    st.caption("Change these in `.env` (LLM_PROVIDER, LLM_MODEL, LLM_REASONING) and restart the app.")
+    st.divider()
+    if not settings.use_playwright:
+        st.markdown("**Browser rendering:** off (`USE_PLAYWRIGHT=false`)")
+    elif browser_installed():
+        st.markdown("**Browser rendering:** on, Chromium ready")
+        st.caption("Pages with too little text are re-opened in a browser. Source status shows which ones.")
+    else:
+        st.warning(f"Browser rendering is on but Chromium is not installed, so JavaScript pages will be partial. {INSTALL_HINT.capitalize()}")
     st.divider()
     st.markdown("**How it works**")
     st.caption(
@@ -151,7 +193,7 @@ with st.sidebar:
 # ---------------------------------------------------------------- input
 st.title("Research Synthesis Agent")
 st.caption(f"Enter a topic and {MIN_URLS} to {MAX_URLS} source URLs. The agent finds where sources agree, "
-           "disagree, stand alone, or leave gaps. Every claim links back to its source with a verified quote.")
+           "disagree, stand alone, or leave gaps. Every finding links back to its source with a verified quote.")
 
 if st.button("Load example"):
     st.session_state["topic"] = EXAMPLE_TOPIC
@@ -181,6 +223,9 @@ if submitted:
             except InsufficientSourcesError as e:
                 status.update(label="Not enough readable sources", state="error")
                 st.error(f"{e} The agent needs at least 2 readable sources to compare.")
+            except LLMConfigError as e:
+                status.update(label="LLM settings are incomplete", state="error")
+                st.error(str(e))
             except Exception as e:  # surface API-key, network and provider errors instead of a blank page
                 status.update(label="The run failed", state="error")
                 st.error(f"{type(e).__name__}: {e}")
@@ -197,22 +242,20 @@ if result:
     st.header(brief.topic)
 
     cols = st.columns(6)
-    cols[0].metric("Sources read", f"{brief.stats.sources_ok}/{len(brief.sources)}")
+    cols[0].metric("Sources processed", f"{brief.stats.sources_ok}/{len(brief.sources)}")
     cols[1].metric("Verified claims", len(brief.claims))
     cols[2].metric("Consensus", len(brief.consensus))
     cols[3].metric("Contradictions", len(brief.contradictions))
-    cols[4].metric("Outliers", len(brief.outliers))
+    cols[4].metric("Single-source", len(brief.outliers))
     cols[5].metric("Gaps", len(brief.gaps))
 
-    left, right = st.columns([3, 1])
-    quotes = left.toggle("Show the supporting quote under each claim", value=False)
-    right.download_button("Download brief (.md)", result["markdown"], file_name=file_name(brief.topic),
-                          mime="text/markdown", width="stretch")
+    render_source_strip(brief)
+    st.download_button("Download brief (.md)", result["markdown"], file_name=file_name(brief.topic), mime="text/markdown")
 
-    tab_brief, tab_sources, tab_md = st.tabs(["Brief", "Sources", "Markdown"])
+    tab_brief, tab_sources, tab_md = st.tabs(["Brief", "Source status", "Markdown"])
     with tab_brief:
-        render_brief(brief, quotes)
+        render_brief(brief)
     with tab_sources:
-        render_sources(brief)
+        render_source_status(brief)
     with tab_md:
         st.code(result["markdown"], language="markdown", wrap_lines=True)

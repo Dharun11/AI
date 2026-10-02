@@ -59,3 +59,17 @@ def test_claim_not_reused_across_consensus_groups():
     ]
     consensus, _, _, rejected = validate_groups(groups, CLAIMS)
     assert len(consensus) == 1 and rejected == 1
+
+
+def test_position_labels_follow_their_positions_and_fall_back_to_the_claim_text():
+    groups = [
+        GroupOut(kind="contradiction", summary="c", claim_ids=[], positions=[["S1-C01"], ["S4-C01"]],
+                 position_labels=["Fast", "Slow"]),
+        # an empty first side is dropped; its label goes with it, and a missing label falls back
+        GroupOut(kind="contradiction", summary="d", claim_ids=[], positions=[["S9-C99"], ["S1-C02"], ["S2-C01"]],
+                 position_labels=["ghost", "", ]),
+    ]
+    _, contradictions, _, _ = validate_groups(groups, CLAIMS)
+    assert contradictions[0].position_labels == ["Fast", "Slow"]
+    assert contradictions[1].positions == [["S1-C02"], ["S2-C01"]]
+    assert contradictions[1].position_labels == ["S1-C02", "S2-C01"]   # statement of each side's first claim

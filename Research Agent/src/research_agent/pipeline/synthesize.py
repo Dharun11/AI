@@ -17,7 +17,8 @@ Produce groups of two kinds:
    (same direction, compatible numbers). Claims from the same source alone never form consensus.
 2. "contradiction": claims from different sources that cannot both be true, or that take explicitly
    opposing positions on the same question (e.g. "X is enforceable without court intervention" vs
-   "courts frequently stay X"). Put each opposing side's claim IDs in its own list in `positions`.
+   "courts frequently stay X"). Put each opposing side's claim IDs in its own list in `positions`, and give
+   each side a one-sentence neutral stance in `position_labels`, in the same order.
 
 Rules:
 - Use ONLY claim IDs that appear in the list. Never invent IDs or sources.
@@ -51,8 +52,13 @@ def validate_groups(
             in_consensus.update(ids)
             consensus.append(ClaimGroup(kind="consensus", summary=g.summary, claim_ids=ids))
         else:
-            positions = [[i for i in dict.fromkeys(p) if i in by_id] for p in g.positions]
-            positions = [p for p in positions if p]
+            positions, labels = [], []
+            for n, side in enumerate(g.positions):
+                ids = [i for i in dict.fromkeys(side) if i in by_id]
+                if ids:                      # labels are matched by original position; a missing one falls back to the first claim
+                    positions.append(ids)
+                    given = g.position_labels[n].strip() if n < len(g.position_labels) else ""
+                    labels.append(given or by_id[ids[0]].statement)
             side_sources = [{by_id[i].source_id for i in p} for p in positions]
             all_sources = set().union(*side_sources) if side_sources else set()
             # need >=2 sides, spanning >=2 sources, and sides must not be the same single source
@@ -61,7 +67,8 @@ def validate_groups(
                 rejected += 1
                 continue
             ids = [i for p in positions for i in p]
-            contradictions.append(ClaimGroup(kind="contradiction", summary=g.summary, claim_ids=ids, positions=positions))
+            contradictions.append(ClaimGroup(kind="contradiction", summary=g.summary, claim_ids=ids,
+                                             positions=positions, position_labels=labels))
 
     contradicted = {i for g in contradictions for i in g.claim_ids}
     outliers = [c.id for c in claims if c.id not in in_consensus and c.id not in contradicted]

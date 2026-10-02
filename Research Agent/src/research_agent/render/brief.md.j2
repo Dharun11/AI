@@ -1,6 +1,6 @@
 # Research Brief: {{ brief.topic }}
 
-*Generated {{ generated_at }} · {{ sources_ok }}/{{ brief.sources|length }} sources read · {{ brief.claims|length }} grounded claims*
+*Generated {{ generated_at }} · {{ sources_ok }} of {{ brief.sources|length }} sources processed · {{ brief.claims|length }} verified claims*
 
 ## TL;DR
 {% for b in brief.tldr %}
@@ -9,37 +9,46 @@
 - No findings could be summarised.
 {% endfor %}
 
-## Sources
-| ID | Source | Status |
-|----|--------|--------|
-{% for s in brief.sources %}
-| {{ s.id }} | [{{ s.title|cell }}]({{ s.url }}) | {{ status_icon[s.status] }} {{ s.status }}{% if s.error %}: {{ s.error|cell }}{% endif %} |
+## Consensus
+*Two or more different sources make the same assertion.*
+
+{% for g in brief.consensus %}
+### Consensus {{ loop.index }}: {{ g.summary }}
+{{ indicator(g.claim_ids) }}
+
+{% for cid in g.claim_ids %}
+- {{ claim(cid).statement }} {{ cite(cid) }}
 {% endfor %}
 
-## ✅ Consensus (2+ sources agree)
-{% for g in brief.consensus %}
-{{ loop.index }}. **{{ g.summary }}**
-{% for cid in g.claim_ids %}
-   - {{ claim(cid).statement }} {{ cite(cid) }}
-{% endfor %}
 {% else %}
 *No claim was corroborated by two or more independent sources.*
+
+{% endfor %}
+## Contradictions
+*Claims from different sources that cannot both be true.*
+
+{% for g in brief.contradictions %}
+### Contradiction {{ loop.index }}: {{ g.summary }}
+{% for side in g.positions %}
+{% if not loop.first %}
+**vs.**
+
+{% endif %}
+**Position {{ "ABCDEFG"[loop.index0] }}: {{ g.position_labels[loop.index0] }}**
+{{ position_indicator(side) }}
+
+{% for cid in side %}
+- {{ claim(cid).statement }} {{ cite(cid) }}
 {% endfor %}
 
-## ⚔️ Contradictions
-{% for g in brief.contradictions %}
-{{ loop.index }}. **{{ g.summary }}**
-{% for side in g.positions %}
-   - **Position {{ "ABCDEFG"[loop.index0] }}:**
-{% for cid in side %}
-     - {{ claim(cid).statement }} {{ cite(cid) }}
-{% endfor %}
 {% endfor %}
 {% else %}
 *No direct contradictions between sources were found.*
-{% endfor %}
 
-## 🔎 Outliers (single-source claims)
+{% endfor %}
+## Single-source claims
+*Verified claims made by only one source and not contested. Not yet corroborated.*
+
 {% for sid, ids in outliers_by_source %}
 **{{ sid }}: {{ source(sid).title }}**
 {% for cid in ids[:outliers_shown] %}
@@ -59,13 +68,22 @@
 
 {% else %}
 *Every claim was corroborated or contested by another source.*
-{% endfor %}
 
-## 🕳️ Gaps (no source addresses these)
+{% endfor %}
+## Gaps
+*Topics a decision-maker would expect that no source addresses.*
+
 {% for g in brief.gaps %}
 - **{{ g.facet }}**: {{ g.why_it_matters }}
 {% else %}
 *All expected facets of the topic were covered by at least one source.*
+{% endfor %}
+
+## Source status
+| | Source | Status | Parsed with |
+|---|---|---|---|
+{% for r in source_rows %}
+| {{ r.icon }} | {{ r.id }} [{{ r.name }}]({{ r.url }}) | {{ r.label|cell }} | {{ r.method }} |
 {% endfor %}
 
 ---
@@ -75,10 +93,14 @@
 - Claims were extracted per source by `{{ brief.stats.llm_provider }}`. Each claim carries a verbatim quote that was checked against the scraped text by fuzzy matching (threshold {{ threshold }}).
 - {{ brief.stats.claims_extracted }} claims extracted → {{ brief.stats.claims_rejected_ungrounded }} rejected as ungrounded (quote not found in source), {{ brief.stats.claims_deduplicated }} duplicates removed.
 - Consensus and contradiction groups were proposed by the LLM using claim IDs only. Code then checked that each group spans 2+ distinct sources; {{ brief.stats.groups_rejected }} groups failed that check and were discarded.
-- Gaps are expected decision facets (generated from the topic alone) that no grounded claim addresses.
+- Gaps are expected decision facets (generated from the topic alone); a facet counts as covered only if real claims are cited for it.
 </details>
 
-### Evidence
-{% for cid in cited %}
-[^{{ cid }}]: **{{ claim(cid).source_id }}**: "{{ claim(cid).quote|oneline }}"
+## Evidence chain
+*Finding → claim ID → source → exact quote → URL, for every claim cited above.*
+
+| Claim | Source | Exact quote | URL |
+|---|---|---|---|
+{% for r in evidence() %}
+| `{{ r.claim_id }}` | {{ r.source_id }} {{ r.name }} | "{{ r.quote|cell }}" | {{ r.url }} |
 {% endfor %}

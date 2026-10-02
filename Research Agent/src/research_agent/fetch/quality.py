@@ -13,11 +13,11 @@ _BLOCK_PATTERNS = re.compile(
 
 
 def assess(text: str, min_chars: int) -> tuple[str, str | None]:
-    """Return (status, reason) where status is ok | partial | failed."""
+    """Return (status, reason) where status is ok | partial | blocked | parse_failed."""
     if not text.strip():
-        return "failed", "no extractable text"
+        return "parse_failed", "no extractable text"
     if _BLOCK_PATTERNS.search(text[:3000]) and len(text) < min_chars * 4:
-        return "failed", "blocked by bot protection"
+        return "blocked", "bot protection page instead of the article"
     if _PAYWALL_PATTERNS.search(text):
         return "partial", "paywall detected; only the free portion was analysed"
     if len(text) < min_chars:

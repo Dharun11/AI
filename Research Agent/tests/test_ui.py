@@ -53,8 +53,43 @@ def test_full_run_renders_every_section(monkeypatch):
     headers = [h.value for h in at.subheader]
     assert any(h.startswith("Consensus (1)") for h in headers)
     assert any(h.startswith("Contradictions (1)") for h in headers)
-    assert any(h.startswith("Outliers") for h in headers)
+    assert any(h.startswith("Single-source claims") for h in headers)
     assert any(h.startswith("Gaps (2)") for h in headers)
     body = " ".join(m.value for m in at.markdown)
     assert "https://a.example/1" in body and "https://d.example/4" in body
-    assert "Position A" in body and "Position B" in body
+    assert "Position A: Arbitration is fast" in body and "Position B: Appeals can stall awards for months" in body
+    assert "Sources: 2 of 4" in " ".join(c.value for c in at.caption)
+    assert any("Source status" in t.label for t in at.tabs)
+
+
+def test_sidebar_tells_the_user_whether_browser_rendering_works(monkeypatch):
+    monkeypatch.setattr("research_agent.fetch.js.browser_installed", lambda: False)
+    at = _app()
+    warnings = " ".join(w.value for w in at.sidebar.warning)
+    assert "Chromium is not installed" in warnings and "playwright install chromium" in warnings
+
+    monkeypatch.setattr("research_agent.fetch.js.browser_installed", lambda: True)
+    at = _app()
+    assert "Chromium ready" in " ".join(m.value for m in at.sidebar.markdown)
+
+
+
+@respx.mock
+def test_source_strip_shows_partial_and_failed_sources(monkeypatch):
+    pages = list(PAGES)
+    respx.get(pages[0]).mock(return_value=httpx.Response(200, text="<html><body><article><p>" + PAGES[pages[0]] + "</p></article></body></html>"))
+    respx.get(pages[1]).mock(return_value=httpx.Response(200, text="<html><body><article><p>" + PAGES[pages[1]] + "</p></article></body></html>"))
+    respx.get(pages[2]).mock(return_value=httpx.Response(200, text="<html><body><p>Loading...</p></body></html>"))   # thin page
+    respx.get(pages[3]).mock(return_value=httpx.Response(404, text="gone"))
+    monkeypatch.setattr(graph_mod, "get_llm", make_fake_llm)
+
+    at = _app()
+    at.text_input(key="topic").set_value("Arbitration vs litigation in India")
+    at.text_area(key="urls_text").set_value("\n".join(pages))
+    at.button[1].click().run()
+
+    assert not at.exception, [e.value for e in at.exception]
+    strip = next(m.value for m in at.markdown if "c.example" in m.value and "d.example" in m.value)
+    assert ":green[✓ **a.example**] processed" in strip
+    assert ":orange[⚠ **c.example**] partial" in strip and "Chromium is not available" not in strip   # thin page, no browser
+    assert ":red[✗ **d.example**] failed (HTTP 404)" in strip

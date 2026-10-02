@@ -10,10 +10,12 @@ import time
 from contextvars import ContextVar
 from typing import Any, Callable
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel
 
 from ..config import get_settings
+from ..llm import structured
 
 log = logging.getLogger("research_agent.trace")
 run_id_var: ContextVar[str] = ContextVar("run_id", default="-")
@@ -122,6 +124,10 @@ def traced_node(name: str, next_nodes: list[str]):
     return deco
 
 
+class OutputTruncatedError(RuntimeError):
+    """The model hit its output limit before finishing the answer (reasoning tokens count toward the limit)."""
+
+
 class EmptyAnswerError(RuntimeError):
     """The LLM never produced a structured answer, so continuing would silently yield a wrong brief."""
 
@@ -135,6 +141,7 @@ async def ask(llm: BaseChatModel, schema: type[BaseModel], messages: list, label
     after the last attempt such an answer is returned as is, with a warning in the log.
     """
     s = get_settings()
+    runnable, messages = structured(llm, schema, messages)   # may add the JSON schema to the system message
     prompt_chars = sum(len(str(m.content)) for m in messages)
     log.info(">> LLM %-18s -> %s  prompt=%s chars", label, schema.__name__, f"{prompt_chars:,}")
     if log.isEnabledFor(logging.DEBUG):
@@ -142,9 +149,16 @@ async def ask(llm: BaseChatModel, schema: type[BaseModel], messages: list, label
     t0 = time.perf_counter()
     for attempt in range(1, attempts + 1):
         try:
-            out = await llm.with_structured_output(schema).ainvoke(messages)
+            out = await runnable.ainvoke(messages)
+        except OutputParserException as e:      # the reply was not valid JSON for the schema: treat as no answer
+            log.warning("<< LLM %-18s unparseable reply: %s", label, clip(e, 160))
+            out = None
         except Exception as e:
             log.error("<< LLM %-18s FAILED after %.1fs: %s: %s", label, time.perf_counter() - t0, type(e).__name__, clip(e, 200))
+            if "length limit" in str(e).lower() or type(e).__name__ == "LengthFinishReasonError":
+                raise OutputTruncatedError(
+                    f"{label}: the model ran out of output tokens before finishing. Reasoning tokens count toward the "
+                    "limit, so raise LLM_MAX_TOKENS (or lower LLM_REASONING).") from e
             raise
         if out is not None and (accept is None or accept(out)):
             break

@@ -78,3 +78,28 @@ async def test_ask_returns_a_parsed_empty_answer_after_last_attempt():
     llm = FakeLLM({"GroupsOut": GroupsOut(groups=[])})
     out = await ask(llm, GroupsOut, [HumanMessage("x")], "synthesize", accept=lambda o: bool(o.groups))
     assert out.groups == [] and len(llm.calls) == 3
+
+
+async def test_ask_retries_an_unparseable_json_reply():
+    from langchain_core.exceptions import OutputParserException
+    good = GroupsOut(groups=[GroupOut(kind="consensus", summary="s", claim_ids=["S1-C01", "S2-C01"])])
+    replies = iter(["bad", good])
+
+    def reply(messages):
+        r = next(replies)
+        if r == "bad":
+            raise OutputParserException("Invalid json output")
+        return r
+
+    out = await ask(FakeLLM({"GroupsOut": reply}), GroupsOut, [HumanMessage("x")], "synthesize")
+    assert out is good
+
+
+async def test_ask_explains_an_output_limit_hit_by_reasoning_tokens():
+    from research_agent.pipeline.trace import OutputTruncatedError
+
+    def reply(messages):
+        raise RuntimeError("Could not parse response content as the length limit was reached")
+
+    with pytest.raises(OutputTruncatedError, match="LLM_MAX_TOKENS"):
+        await ask(FakeLLM({"GroupsOut": reply}), GroupsOut, [HumanMessage("x")], "synthesize")

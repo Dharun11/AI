@@ -21,9 +21,29 @@ class FakeLLM:
     def __init__(self, responses: dict):
         self.responses = responses
         self.calls: list = []
+        self.structured_kwargs: list = []
 
-    def with_structured_output(self, schema):
+    def with_structured_output(self, schema, **kwargs):
+        self.structured_kwargs.append(kwargs)       # e.g. {"method": "json_mode"}
         return _Structured(self, schema)
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings(monkeypatch):
+    """Tests must not depend on the developer's .env or on a Chromium install: pin the settings and fake the browser."""
+    from research_agent.config import get_settings
+    from research_agent.fetch import fetcher
+    from research_agent.fetch.js import BrowserUnavailable
+    s = get_settings()
+    for name, value in [("llm_provider", "anthropic"), ("llm_model", "test-model"), ("llm_reasoning", ""),
+                        ("llm_temperature", "0"), ("llm_max_tokens", None), ("llm_extra_params", {}),
+                        ("use_playwright", True)]:
+        monkeypatch.setattr(s, name, value)
+
+    async def no_browser(url, timeout_ms=0, settle_ms=0):
+        raise BrowserUnavailable("Chromium is not available in tests")
+
+    monkeypatch.setattr(fetcher, "render_html", no_browser)   # tests that need a browser result override this
 
 
 @pytest.fixture

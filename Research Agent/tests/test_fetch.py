@@ -20,7 +20,8 @@ def test_html_extraction_strips_boilerplate(fixtures_dir):
 
 
 def test_quality_flags_paywall_and_empty():
-    assert assess("", 500)[0] == "failed"
+    assert assess("", 500)[0] == "parse_failed"
+    assert assess("Access denied. Verify you are human.", 500)[0] == "blocked"
     long_text = "Real content sentence. " * 50
     assert assess(long_text + " Subscribe to continue reading.", 500)[0] == "partial"
     assert assess(long_text, 500) == ("ok", None)
@@ -48,5 +49,21 @@ async def test_fetch_all_handles_html_pdf_and_errors(fixtures_dir):
     assert "under six months" in sources[0].text
     assert sources[1].method == "pypdf"
     assert "fully enforceable" in sources[1].text
-    assert sources[2].status == "failed" and "403" in sources[2].error
+    assert sources[2].status == "blocked" and "HTTP 403: access denied to our fetcher" in sources[2].error
+    assert "paywall" not in sources[2].error      # a 403 does not prove a paywall
     assert sources[3].status == "failed" and "network error" in sources[3].error
+
+
+@respx.mock
+async def test_a_slow_site_is_a_timeout_not_a_generic_failure():
+    respx.get("https://slow.example/x").mock(side_effect=httpx.ReadTimeout("too slow"))
+    (src,) = await fetch_all(["https://slow.example/x"])
+    assert src.status == "timeout" and "no response within" in src.error and not src.usable
+
+
+@respx.mock
+async def test_unparseable_content_is_parse_failed():
+    respx.get("https://bad.example/x.pdf").mock(
+        return_value=httpx.Response(200, content=b"%PDF-1.4 this is not really a pdf", headers={"content-type": "application/pdf"}))
+    (src,) = await fetch_all(["https://bad.example/x.pdf"])
+    assert src.status == "parse_failed" and not src.usable

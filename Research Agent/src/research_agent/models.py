@@ -3,7 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-SourceStatus = Literal["ok", "partial", "failed"]
+# ok: fully read. partial: read, but thin, paywalled or with extraction gaps.
+# blocked: our fetcher was refused (HTTP 401/402/403/451 or bot protection); not necessarily a paywall.
+# timeout: no response in time. parse_failed: got a response but no usable text. failed: anything else.
+SourceStatus = Literal["ok", "partial", "blocked", "timeout", "parse_failed", "failed"]
 
 
 class Source(BaseModel):
@@ -12,8 +15,15 @@ class Source(BaseModel):
     title: str = ""
     status: SourceStatus = "ok"
     text: str = ""
-    error: str | None = None
+    error: str | None = None     # the reason or note shown next to the status
     method: str = ""             # how the text was obtained: trafilatura / bs4 / playwright / pypdf
+    chunks: int = 0              # text chunks sent for claim extraction
+    chunks_empty: int = 0        # chunks that still returned no claims after a retry
+
+    @property
+    def usable(self) -> bool:
+        """Only ok and partial sources have text we can analyse."""
+        return self.status in ("ok", "partial")
 
 
 class Claim(BaseModel):
@@ -28,8 +38,9 @@ class ClaimGroup(BaseModel):
     kind: Literal["consensus", "contradiction"]
     summary: str
     claim_ids: list[str]
-    # contradiction only: each side is a list of claim ids taking that position
+    # contradiction only: each side is a list of claim ids taking that position, plus a one-line stance per side
     positions: list[list[str]] = Field(default_factory=list)
+    position_labels: list[str] = Field(default_factory=list)
 
 
 class Gap(BaseModel):
@@ -77,6 +88,10 @@ class GroupOut(BaseModel):
     positions: list[list[str]] = Field(
         default_factory=list,
         description="Contradiction only: claim IDs grouped per opposing position, e.g. [['S1-C02'], ['S4-C05']].",
+    )
+    position_labels: list[str] = Field(
+        default_factory=list,
+        description="Contradiction only: one short neutral sentence stating each side's stance, in the same order as `positions`.",
     )
 
 

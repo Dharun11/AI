@@ -8,6 +8,8 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 from .config import get_settings
+from .fetch.js import browser_installed
+from .llm import LLMConfigError
 from .pipeline.graph import InsufficientSourcesError, run_research
 from .pipeline.trace import configure_logging
 from .render.markdown import render_markdown
@@ -41,7 +43,10 @@ def _save(topic: str, markdown: str) -> str:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "llm_provider": get_settings().llm_provider}
+    s = get_settings()
+    return {"status": "ok", "llm_provider": s.llm_provider or None, "llm_model": s.llm_model or None,
+            "llm_reasoning": s.llm_reasoning or "model default",
+            "js_rendering": ("off" if not s.use_playwright else "ready" if browser_installed() else "browser missing")}
 
 
 @app.post("/research", response_class=PlainTextResponse, responses={200: {"content": {"text/markdown": {}}}})
@@ -52,6 +57,8 @@ async def research(req: ResearchRequest) -> PlainTextResponse:
         brief = await run_research(req.topic, urls)
     except InsufficientSourcesError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+    except LLMConfigError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     markdown = render_markdown(brief)
     path = _save(req.topic, markdown)
     log.info("brief saved to %s", path)
