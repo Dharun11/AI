@@ -1,0 +1,84 @@
+# Research Brief: {{ brief.topic }}
+
+*Generated {{ generated_at }} · {{ sources_ok }}/{{ brief.sources|length }} sources read · {{ brief.claims|length }} grounded claims*
+
+## TL;DR
+{% for b in brief.tldr %}
+- {{ b }}
+{% else %}
+- No findings could be summarised.
+{% endfor %}
+
+## Sources
+| ID | Source | Status |
+|----|--------|--------|
+{% for s in brief.sources %}
+| {{ s.id }} | [{{ s.title|cell }}]({{ s.url }}) | {{ status_icon[s.status] }} {{ s.status }}{% if s.error %}: {{ s.error|cell }}{% endif %} |
+{% endfor %}
+
+## ✅ Consensus (2+ sources agree)
+{% for g in brief.consensus %}
+{{ loop.index }}. **{{ g.summary }}**
+{% for cid in g.claim_ids %}
+   - {{ claim(cid).statement }} {{ cite(cid) }}
+{% endfor %}
+{% else %}
+*No claim was corroborated by two or more independent sources.*
+{% endfor %}
+
+## ⚔️ Contradictions
+{% for g in brief.contradictions %}
+{{ loop.index }}. **{{ g.summary }}**
+{% for side in g.positions %}
+   - **Position {{ "ABCDEFG"[loop.index0] }}:**
+{% for cid in side %}
+     - {{ claim(cid).statement }} {{ cite(cid) }}
+{% endfor %}
+{% endfor %}
+{% else %}
+*No direct contradictions between sources were found.*
+{% endfor %}
+
+## 🔎 Outliers (single-source claims)
+{% for sid, ids in outliers_by_source %}
+**{{ sid }}: {{ source(sid).title }}**
+{% for cid in ids[:outliers_shown] %}
+- {{ claim(cid).statement }} {{ cite(cid) }}
+{% endfor %}
+{% if ids|length > outliers_shown %}
+
+<details>
+<summary>{{ ids|length - outliers_shown }} more from {{ sid }}</summary>
+
+{% for cid in ids[outliers_shown:] %}
+- {{ claim(cid).statement }} {{ cite(cid) }}
+{% endfor %}
+
+</details>
+{% endif %}
+
+{% else %}
+*Every claim was corroborated or contested by another source.*
+{% endfor %}
+
+## 🕳️ Gaps (no source addresses these)
+{% for g in brief.gaps %}
+- **{{ g.facet }}**: {{ g.why_it_matters }}
+{% else %}
+*All expected facets of the topic were covered by at least one source.*
+{% endfor %}
+
+---
+<details>
+<summary>Methodology</summary>
+
+- Claims were extracted per source by `{{ brief.stats.llm_provider }}`. Each claim carries a verbatim quote that was checked against the scraped text by fuzzy matching (threshold {{ threshold }}).
+- {{ brief.stats.claims_extracted }} claims extracted → {{ brief.stats.claims_rejected_ungrounded }} rejected as ungrounded (quote not found in source), {{ brief.stats.claims_deduplicated }} duplicates removed.
+- Consensus and contradiction groups were proposed by the LLM using claim IDs only. Code then checked that each group spans 2+ distinct sources; {{ brief.stats.groups_rejected }} groups failed that check and were discarded.
+- Gaps are expected decision facets (generated from the topic alone) that no grounded claim addresses.
+</details>
+
+### Evidence
+{% for cid in cited %}
+[^{{ cid }}]: **{{ claim(cid).source_id }}**: "{{ claim(cid).quote|oneline }}"
+{% endfor %}
