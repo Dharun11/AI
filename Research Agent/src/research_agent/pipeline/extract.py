@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..config import get_settings
 from ..models import Claim, ClaimsOut, Source
+from .trace import ask
 
 SYSTEM = """You are a meticulous research analyst extracting factual claims from ONE source document.
 
@@ -39,14 +40,15 @@ def chunk_text(text: str, size: int, overlap: int = 500) -> list[str]:
 
 
 async def _extract_chunk(llm: BaseChatModel, topic: str, src: Source, chunk: str, idx: int, total: int) -> list:
-    structured = llm.with_structured_output(ClaimsOut)
     msg = (
         f"Research topic: {topic}\n"
         f"Source title: {src.title}\n"
         f"Part {idx}/{total} of the source text:\n<source>\n{chunk}\n</source>"
     )
-    out: ClaimsOut = await structured.ainvoke(
-        [SystemMessage(SYSTEM.format(max_claims=MAX_CLAIMS_PER_CHUNK)), HumanMessage(msg)]
+    out: ClaimsOut = await ask(
+        llm, ClaimsOut,
+        [SystemMessage(SYSTEM.format(max_claims=MAX_CLAIMS_PER_CHUNK)), HumanMessage(msg)],
+        label=f"extract {src.id} {idx}/{total}",
     )
     return out.claims if out else []
 

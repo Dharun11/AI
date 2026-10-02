@@ -1,5 +1,8 @@
 """LangGraph wiring: fetch -> extract -> verify -> (synthesize || gaps) -> tldr."""
 import logging
+import time
+import uuid
+from collections.abc import Callable
 from typing import TypedDict
 
 from langchain_core.language_models import BaseChatModel
@@ -13,6 +16,7 @@ from ..models import Brief, Claim, ClaimGroup, Gap, Source, Stats, TldrOut
 from .extract import extract_claims
 from .gaps import find_gaps
 from .synthesize import synthesize
+from .trace import ask, progress_var, run_id_var, traced_node
 from .verify import verify_claims
 
 log = logging.getLogger(__name__)
@@ -41,39 +45,60 @@ class State(TypedDict, total=False):
     stats: Stats
 
 
+# Where control goes after each node. Used for the trace log; a test checks it against the compiled graph.
+NEXT = {
+    "fetch": ["extract"],
+    "extract": ["verify"],
+    "verify": ["synthesize", "gaps"],     # parallel
+    "synthesize": ["tldr"],               # tldr waits for both
+    "gaps": ["tldr"],
+    "tldr": ["END"],
+}
+
+
 def build_graph(llm: BaseChatModel | None = None):
     llm = llm or get_llm()
     settings = get_settings()
 
+    @traced_node("fetch", NEXT["fetch"])
     async def fetch(state: State) -> State:
         sources = await fetch_all(state["urls"])
+        for s in sources:
+            log.info("fetched %s %-7s %-12s %7s chars  %s%s", s.id, s.status, s.method or "-", f"{len(s.text):,}",
+                     s.url, f"  ({s.error})" if s.error else "")
         usable = [s for s in sources if s.status != "failed"]
         if len(usable) < 2:
             detail = "; ".join(f"{s.url}: {s.error}" for s in sources if s.status == "failed")
             raise InsufficientSourcesError(f"Only {len(usable)} source(s) could be read. {detail}")
         return {"sources": sources, "stats": Stats(sources_ok=len(usable), llm_provider=settings.llm_provider)}
 
+    @traced_node("extract", NEXT["extract"])
     async def extract(state: State) -> State:
         claims = await extract_claims(llm, state["topic"], state["sources"])
         stats = state["stats"].model_copy(update={"claims_extracted": len(claims)})
         return {"claims": claims, "stats": stats}
 
+    @traced_node("verify", NEXT["verify"])
     async def verify(state: State) -> State:
         kept, ungrounded, dupes = verify_claims(state["claims"], state["sources"], settings.grounding_threshold)
-        log.info("verify: kept=%d ungrounded=%d dupes=%d", len(kept), ungrounded, dupes)
+        log.info("verify: %d claims in -> %d kept, %d ungrounded (quote not in source), %d duplicates",
+                 len(state["claims"]), len(kept), ungrounded, dupes)
         stats = state["stats"].model_copy(
             update={"claims_rejected_ungrounded": ungrounded, "claims_deduplicated": dupes}
         )
         return {"claims": kept, "stats": stats}
 
+    @traced_node("synthesize", NEXT["synthesize"])
     async def synth(state: State) -> State:
         consensus, contradictions, outliers, rejected = await synthesize(llm, state["topic"], state["claims"])
         stats = state["stats"].model_copy(update={"groups_rejected": rejected})
         return {"consensus": consensus, "contradictions": contradictions, "outliers": outliers, "stats": stats}
 
+    @traced_node("gaps", NEXT["gaps"])
     async def gaps(state: State) -> State:
         return {"gaps": await find_gaps(llm, state["topic"], state["claims"])}
 
+    @traced_node("tldr", NEXT["tldr"])
     async def tldr(state: State) -> State:
         by_id = {c.id: c for c in state["claims"]}
         def section(title: str, lines: list[str]) -> str:
@@ -86,10 +111,10 @@ def build_graph(llm: BaseChatModel | None = None):
             section("Gaps (no source covers)", [g.facet for g in state["gaps"]]),
             section("Single-source claims (sample)", [by_id[i].statement for i in state["outliers"][:15]]),
         ])
-        out: TldrOut = await llm.with_structured_output(TldrOut).ainvoke([
+        out: TldrOut = await ask(llm, TldrOut, [
             SystemMessage(TLDR_SYSTEM),
             HumanMessage(f"Topic: {state['topic']}\n\n{findings}"),
-        ])
+        ], label="tldr")
         return {"tldr": (out.bullets if out else [])[:3]}
 
     g = StateGraph(State)
@@ -109,8 +134,17 @@ def build_graph(llm: BaseChatModel | None = None):
     return g.compile()
 
 
-async def run_research(topic: str, urls: list[str], llm: BaseChatModel | None = None) -> Brief:
+async def run_research(topic: str, urls: list[str], llm: BaseChatModel | None = None,
+                       progress: Callable[[str], None] | None = None) -> Brief:
+    """`progress`, if given, receives a short text line as each node and LLM call finishes."""
+    run_id_var.set(uuid.uuid4().hex[:6])
+    progress_var.set(progress)
+    log.info("run START topic=%r, %d urls, provider=%s", topic, len(urls), get_settings().llm_provider)
+    t0 = time.perf_counter()
     state: State = await build_graph(llm).ainvoke({"topic": topic, "urls": urls})
+    log.info("run DONE %.1fs: %d consensus, %d contradictions, %d outliers, %d gaps",
+             time.perf_counter() - t0, len(state["consensus"]), len(state["contradictions"]),
+             len(state["outliers"]), len(state["gaps"]))
     return Brief(
         topic=topic,
         sources=state["sources"],

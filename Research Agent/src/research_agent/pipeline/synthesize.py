@@ -5,6 +5,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..models import Claim, ClaimGroup, GroupOut, GroupsOut
+from .trace import ask
 
 log = logging.getLogger(__name__)
 
@@ -70,9 +71,12 @@ def validate_groups(
 async def synthesize(llm: BaseChatModel, topic: str, claims: list[Claim]):
     if len({c.source_id for c in claims}) < 2:
         return validate_groups([], claims)
-    structured = llm.with_structured_output(GroupsOut)
-    out: GroupsOut = await structured.ainvoke([
+    out: GroupsOut = await ask(llm, GroupsOut, [
         SystemMessage(SYSTEM),
         HumanMessage(f"Research topic: {topic}\n\nClaims:\n{format_claims(claims)}"),
-    ])
-    return validate_groups(out.groups if out else [], claims)
+    ], label="synthesize", accept=lambda o: bool(o.groups))  # zero groups for many claims means the call misfired
+    groups = out.groups if out else []
+    consensus, contradictions, outliers, rejected = validate_groups(groups, claims)
+    log.info("validate: LLM proposed %d groups -> kept %d consensus + %d contradictions, rejected %d; %d outliers",
+             len(groups), len(consensus), len(contradictions), rejected, len(outliers))
+    return consensus, contradictions, outliers, rejected

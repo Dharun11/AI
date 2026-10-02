@@ -33,6 +33,15 @@ copy .env.example .env          # then set LLM_PROVIDER and the matching API key
 `LLM_PROVIDER` can be `anthropic` (default model `claude-sonnet-5-5`), `openai` (`gpt-4.1`), `gemini` (`gemini-2.5-pro`) or `deepseek` (`deepseek-flash`; or `deepseek-v4-pro`). The pipeline relies on structured output (tool calling), so pick a model that supports it. Set `LLM_MODEL` to use a different model.
 
 ## Run
+
+**Streamlit UI** (paste a topic and 3-5 URLs, watch the pipeline, read and download the brief):
+```bash
+pip install -e ".[ui]"
+streamlit run streamlit_app.py
+```
+Open http://localhost:8501. "Load example" fills in a sample topic and 5 URLs. The sidebar shows the active provider and warns if its API key is missing. The Brief tab has a toggle that shows the verified quote under each claim.
+
+**API:**
 ```bash
 uvicorn research_agent.api:app --reload
 ```
@@ -57,6 +66,16 @@ The response body is `text/markdown`. Each brief is also saved to `outputs/<topi
 |---|---|
 | `POST /research` | `{topic, urls[3..5]}` → Markdown brief. Returns 422 for invalid input, and 502 if fewer than 2 sources were readable. |
 | `GET /health` | Liveness check and the active LLM provider. |
+
+## Logging
+One line per node and per LLM call, each tagged with a short run id (`[f06673]`) so concurrent requests can be told apart.
+
+| `LOG_LEVEL` | Shows |
+|---|---|
+| `INFO` (default) | `[node:x] START/DONE` with sizes and timings, `>> LLM` / `<< LLM` with prompt size and a count plus first item of the answer, verify and validation counts, and why groups were rejected |
+| `DEBUG` | Also the full prompt sent to the LLM and its full structured answer (each clipped to `LOG_CLIP_CHARS`, default 3000) |
+
+All LLM calls go through `ask()` in [pipeline/trace.py](src/research_agent/pipeline/trace.py), and each node is wrapped with `@traced_node`. Set `LOG_LEVEL=DEBUG` in `.env` to see everything.
 
 ## Tests
 ```bash

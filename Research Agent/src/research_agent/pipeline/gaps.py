@@ -1,8 +1,13 @@
 """Gap detection: expected facets of the topic that zero grounded claims address."""
+import logging
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..models import Claim, CoverageOut, FacetsOut, Gap
+from .trace import ask
+
+log = logging.getLogger(__name__)
 
 BASELINE_FACETS = [
     "Regulatory / compliance",
@@ -35,10 +40,10 @@ def _key(s: str) -> str:
 
 
 async def find_gaps(llm: BaseChatModel, topic: str, claims: list[Claim]) -> list[Gap]:
-    facets_out: FacetsOut = await llm.with_structured_output(FacetsOut).ainvoke([
+    facets_out: FacetsOut = await ask(llm, FacetsOut, [
         SystemMessage(FACETS_SYSTEM.format(baseline="\n".join(f"- {b}" for b in BASELINE_FACETS))),
         HumanMessage(f"Research topic: {topic}"),
-    ])
+    ], label="gaps: expected")
     expected = facets_out.facets if facets_out else []
     if not expected:
         return []
@@ -47,11 +52,17 @@ async def find_gaps(llm: BaseChatModel, topic: str, claims: list[Claim]) -> list
 
     facet_list = "\n".join(f"- {f.facet}" for f in expected)
     claim_list = "\n".join(f"[{c.id}] ({c.facet}) {c.statement}" for c in claims)
-    cov: CoverageOut = await llm.with_structured_output(CoverageOut).ainvoke([
+    cov: CoverageOut = await ask(llm, CoverageOut, [
         SystemMessage(COVERAGE_SYSTEM),
         HumanMessage(f"Research topic: {topic}\n\nExpected facets:\n{facet_list}\n\nClaims:\n{claim_list}"),
-    ])
+    ], label="gaps: coverage")
     # A facet counts as covered only when the auditor cites at least one real claim for it.
     known = {c.id for c in claims}
-    covered = {_key(fc.facet) for fc in (cov.covered if cov else []) if any(i in known for i in fc.claim_ids)}
-    return [f for f in expected if _key(f.facet) not in covered]
+    claimed = cov.covered if cov else []
+    covered = {_key(fc.facet) for fc in claimed if any(i in known for i in fc.claim_ids)}
+    unsupported = [fc.facet for fc in claimed if _key(fc.facet) not in covered]
+    if unsupported:
+        log.info("coverage: ignored %d 'covered' facets that cite no real claim: %s", len(unsupported), unsupported)
+    gaps = [f for f in expected if _key(f.facet) not in covered]
+    log.info("coverage: %d expected facets, %d covered by evidence -> %d gaps", len(expected), len(covered), len(gaps))
+    return gaps

@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     grounding_threshold: int = 85      # rapidfuzz partial_ratio needed to accept a quote
     fetch_timeout: float = 30.0
 
+    log_level: str = "INFO"            # DEBUG also logs every full LLM prompt and answer
+    log_clip_chars: int = 3000         # max chars of a prompt/answer printed at DEBUG
+
     output_dir: Path = ROOT / "outputs"
 
 

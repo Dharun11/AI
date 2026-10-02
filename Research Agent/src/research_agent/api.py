@@ -9,9 +9,10 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 from .config import get_settings
 from .pipeline.graph import InsufficientSourcesError, run_research
+from .pipeline.trace import configure_logging
 from .render.markdown import render_markdown
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+configure_logging()
 log = logging.getLogger("research_agent")
 
 app = FastAPI(title="Multi-Source Research & Synthesis Agent", version="0.1.0")
