@@ -23,14 +23,60 @@ uv run streamlit run streamlit_app.py
 ```
 Open http://localhost:8501 and press **Load example**. macOS/Linux: use `cp` instead of `copy`.
 
-## How it works
+## Architecture
+```mermaid
+flowchart TB
+    UI["Streamlit UI<br/>streamlit_app.py"]
+    API["FastAPI<br/>POST /research"]
+    URLS[("Source URLs<br/>pages and PDFs")]
+    PW["Playwright + Chromium<br/>domcontentloaded + short settle"]
+    LLM["LLM factory (llm.py)<br/>anthropic, openai, gemini or deepseek<br/>model and reasoning from .env"]
+
+    subgraph PIPE["LangGraph pipeline: one shared state"]
+        direction TB
+        F["fetch<br/>download, clean, status per source"]
+        E["extract<br/>atomic claims + exact quote, per chunk"]
+        V["verify<br/>quote must exist in the page"]
+        S["synthesize<br/>group claims by ID"]
+        SC["check groups<br/>2+ different sources, real IDs"]
+        GP["gaps<br/>expected topics vs evidence"]
+        GC["check evidence<br/>cited claims must exist"]
+        T["tldr<br/>3 bullets"]
+        R["render<br/>Markdown, links and quotes from stored data"]
+
+        F --> E --> V
+        V --> S --> SC --> T
+        V --> GP --> GC --> T
+        T --> R
+    end
+
+    UI --> F
+    API --> F
+    F <-->|"httpx, trafilatura, pypdf"| URLS
+    F -.->|"thin page or HTTP 403"| PW
+    E -.->|"ask()"| LLM
+    S -.->|"ask()"| LLM
+    GP -.->|"ask() x2"| LLM
+    T -.->|"ask()"| LLM
+    R --> OUT["Brief<br/>TL;DR, Consensus, Contradictions,<br/>Single-source claims, Gaps,<br/>Source status, Evidence chain"]
+
+    classDef ai fill:#dcefec,stroke:#0e6a62,color:#14201e
+    classDef gate fill:#f8ebd5,stroke:#a85d00,color:#14201e
+    classDef code fill:#e8eeec,stroke:#566562,color:#14201e
+    class E,S,GP,T ai
+    class V,SC,GC gate
+    class F,R code
 ```
-fetch ──► extract ──► verify ──┬─► synthesize ─┬─► tldr ──► brief
-(httpx,   (LLM, per    (quote   │  (LLM groups   │
- trafil.,  chunk,       found?) │   by claim ID, │
- pypdf,    structured)          │   code-checked)│
- browser)                       └─► gaps ────────┘
-```
+**Green** steps call the LLM. **Orange** steps are code that checks the LLM's work before anything moves on. **Grey** steps are plain code. The LLM never sees or writes a URL: links and source names come from stored data, and in the grouping, gaps and TL;DR steps it refers to claims by ID (such as `S2-C07`), which code checks. Each quote is copied by the LLM but must be found in the page text, so an invented URL or quote cannot reach the brief. The claim wording, group summaries and TL;DR are still LLM-written and are not verified against the page.
+
+| Step | Does | Checked by |
+|---|---|---|
+| fetch | Downloads each URL, extracts the text, and marks it processed, partial, inaccessible, timed out or failed. Re-opens thin or refused pages in a browser. | Status rules in `fetch/` |
+| extract | Cuts each source into chunks and asks the LLM for claims with an exact supporting quote. A long chunk that returns nothing is retried once and flagged if still empty. | `verify` |
+| verify | Drops any claim whose quote is not found in the page text. | Exact and fuzzy text match |
+| synthesize | The LLM proposes consensus and contradiction groups from claim IDs. | `check groups`: 2+ different sources, no invented IDs |
+| gaps | The LLM lists the topics a decision-maker would expect, then says which claims cover them. | `check evidence`: a topic counts as covered only if it cites a real claim |
+| tldr, render | Writes three bullets, then builds the brief with source links, indicators and the evidence chain. | Links and quotes come from stored data |
 
 ## Settings (`.env`)
 **Model.** `LLM_PROVIDER` (`anthropic`, `openai`, `gemini` or `deepseek`) and `LLM_MODEL` (the exact model id) are required and come only from `.env`. No model name is built into the code. A missing one stops the run with a message naming the variable.
